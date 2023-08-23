@@ -491,10 +491,10 @@ pub enum StatusLineElement {
     /// The LSP activity spinner
     Spinner,
 
-    /// The base file name, including a dirty flag if it's unsaved
+    /// The file basename (the leaf of the open file's path)
     FileBaseName,
 
-    /// The relative file path, including a dirty flag if it's unsaved
+    /// The relative file path
     FileName,
 
     // The file modification indicator
@@ -945,6 +945,7 @@ pub struct Editor {
     pub auto_pairs: Option<AutoPairs>,
 
     pub idle_timer: Pin<Box<Sleep>>,
+    redraw_timer: Pin<Box<Sleep>>,
     last_motion: Option<Motion>,
     pub last_completion: Option<CompleteAction>,
 
@@ -990,6 +991,7 @@ pub enum EditorEvent {
     LanguageServerMessage((usize, Call)),
     DebuggerEvent(dap::Payload),
     IdleTimer,
+    Redraw,
 }
 
 #[derive(Debug, Clone)]
@@ -1092,6 +1094,7 @@ impl Editor {
             status_msg: None,
             autoinfo: None,
             idle_timer: Box::pin(sleep(conf.idle_timeout)),
+            redraw_timer: Box::pin(sleep(Duration::MAX)),
             last_motion: None,
             last_completion: None,
             config,
@@ -1475,7 +1478,7 @@ impl Editor {
 
     // ??? possible use for integration tests
     pub fn open(&mut self, path: &Path, action: Action) -> Result<DocumentId, Error> {
-        let path = helix_core::path::get_canonicalized_path(path)?;
+        let path = helix_core::path::get_canonicalized_path(path);
         let id = self.document_by_path(&path).map(|doc| doc.id);
 
         let id = if let Some(id) = id {
@@ -1792,12 +1795,16 @@ impl Editor {
                     if  !self.needs_redraw{
                         self.needs_redraw = true;
                         let timeout = Instant::now() + Duration::from_millis(33);
-                        if timeout < self.idle_timer.deadline(){
-                            self.idle_timer.as_mut().reset(timeout)
+                        if timeout < self.idle_timer.deadline() && timeout < self.redraw_timer.deadline(){
+                            self.redraw_timer.as_mut().reset(timeout)
                         }
                     }
                 }
 
+                _ = &mut self.redraw_timer  => {
+                    self.redraw_timer.as_mut().reset(Instant::now() + Duration::from_secs(86400 * 365 * 30));
+                    return EditorEvent::Redraw
+                }
                 _ = &mut self.idle_timer  => {
                     return EditorEvent::IdleTimer
                 }
