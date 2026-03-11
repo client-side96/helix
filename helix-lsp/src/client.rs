@@ -1713,4 +1713,14 @@ impl Client {
             changes,
         })
     }
+
+    pub fn sign_in(&self) -> Option<impl Future<Output = Result<Option<lsp::SignInResult>>>> {
+        let params = lsp::SignInParams {};
+        Some(self.call::<lsp::request::SignIn>(params))
+    }
+
+    pub fn sign_out(&self) -> Option<impl Future<Output = Result<Option<lsp::SignOutResult>>>> {
+        let params = lsp::SignOutParams {};
+        Some(self.call::<lsp::request::SignOut>(params))
+    }
 }

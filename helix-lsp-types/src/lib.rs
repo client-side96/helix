@@ -185,6 +185,9 @@ pub use type_hierarchy::*;
 mod linked_editing;
 pub use linked_editing::*;
 
+mod auth;
+pub use auth::*;
+
 mod window;
 pub use window::*;
 

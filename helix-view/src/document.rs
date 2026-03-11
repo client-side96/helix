@@ -1917,6 +1917,10 @@ impl Document {
         })
     }
 
+    pub fn get_language_server_by_name(&mut self, name: &str) -> Option<Arc<Client>> {
+        self.language_servers.get(name).cloned()
+    }
+
     pub fn remove_language_server_by_name(&mut self, name: &str) -> Option<Arc<Client>> {
         self.language_servers.remove(name)
     }
