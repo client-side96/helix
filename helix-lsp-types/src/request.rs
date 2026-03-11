@@ -207,6 +207,12 @@ macro_rules! lsp_request {
     ("window/showDocument") => {
         $crate::request::ShowDocument
     };
+    ("signIn") => {
+        $crate::request::SignIn
+    };
+    ("signOut") => {
+        $crate::request::SignOut
+    };
 }
 
 /// The initialize request is sent as the first request from the client to the server.
@@ -819,6 +825,22 @@ impl Request for ShowDocument {
     type Params = ShowDocumentParams;
     type Result = ShowDocumentResult;
     const METHOD: &'static str = "window/showDocument";
+}
+
+pub enum SignIn {}
+
+impl Request for SignIn {
+    type Params = SignInParams;
+    type Result = Option<SignInResult>;
+    const METHOD: &'static str = "signIn";
+}
+
+pub enum SignOut {}
+
+impl Request for SignOut {
+    type Params = SignOutParams;
+    type Result = Option<SignOutResult>;
+    const METHOD: &'static str = "signOut";
 }
 
 pub enum MonikerRequest {}
