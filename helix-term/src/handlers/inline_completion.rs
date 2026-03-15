@@ -1,6 +1,5 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
-use arc_swap::ArcSwap;
 use helix_core::{syntax::config::LanguageServerFeature, text_annotations::InlineAnnotation};
 use helix_event::{cancelable_future, register_hook, send_blocking, TaskController, TaskHandle};
 use helix_lsp::{
@@ -16,34 +15,24 @@ use tokio::time::Instant;
 
 use crate::{
     compositor::Compositor,
-    config::Config,
     events::{OnModeSwitch, PostInsertChar},
     job::{dispatch, dispatch_blocking},
 };
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub(super) enum TriggerKind {
-    Auto,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Trigger {
-    pub(super) pos: usize,
     pub(super) view: ViewId,
     pub(super) doc: DocumentId,
-    pub(super) kind: TriggerKind,
 }
 pub struct InlineCompletionHandler {
     trigger: Option<Trigger>,
     in_flight: Option<Trigger>,
     task_controller: TaskController,
-    config: Arc<ArcSwap<Config>>,
 }
 
 impl InlineCompletionHandler {
-    pub fn new(config: Arc<ArcSwap<Config>>) -> InlineCompletionHandler {
+    pub fn new() -> InlineCompletionHandler {
         Self {
-            config,
             task_controller: TaskController::new(),
             trigger: None,
             in_flight: None,
@@ -64,7 +53,7 @@ impl helix_event::AsyncHook for InlineCompletionHandler {
         }
         match event {
             InlineCompletionEvent::AutoTrigger {
-                cursor: trigger_pos,
+                cursor: _cursor,
                 doc,
                 view,
             } => {
@@ -73,16 +62,11 @@ impl helix_event::AsyncHook for InlineCompletionHandler {
                     .or(self.in_flight)
                     .is_none_or(|trigger| trigger.doc != doc || trigger.view != view)
                 {
-                    self.trigger = Some(Trigger {
-                        pos: trigger_pos,
-                        view,
-                        doc,
-                        kind: TriggerKind::Auto,
-                    });
+                    self.trigger = Some(Trigger { view, doc });
                 }
 
                 self.trigger
-                    .map(|_trigger| Instant::now() + Duration::from_millis(500))
+                    .map(|_trigger| Instant::now() + Duration::from_millis(200))
             }
             InlineCompletionEvent::Cancel => {
                 self.trigger = None;
@@ -116,6 +100,7 @@ fn request_inline_completions(
     let language_servers: Vec<_> = doc
         .language_servers_with_feature(LanguageServerFeature::InlineCompletion)
         .collect();
+
     for ls in language_servers.iter() {
         let offset_encoding = ls.offset_encoding();
         let pos = pos_to_lsp_pos(text, cursor, offset_encoding);

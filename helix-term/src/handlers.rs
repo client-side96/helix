@@ -38,7 +38,7 @@ pub fn setup(config: Arc<ArcSwap<Config>>) -> Handlers {
     let word_index = word_index::Handler::spawn();
     let pull_diagnostics = PullDiagnosticsHandler::default().spawn();
     let pull_all_documents_diagnostics = PullAllDocumentsDiagnosticHandler::default().spawn();
-    let inline_completions = InlineCompletionHandler::new(config.clone()).spawn();
+    let inline_completions = InlineCompletionHandler::new().spawn();
 
     let handlers = Handlers {
         completions: helix_view::handlers::completion::CompletionHandler::new(event_tx),
