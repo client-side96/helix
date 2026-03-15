@@ -103,6 +103,7 @@ fn request_inline_completions(
 
     for ls in language_servers.iter() {
         let offset_encoding = ls.offset_encoding();
+        let server_id = ls.id();
         let pos = pos_to_lsp_pos(text, cursor, offset_encoding);
         if let Some(response) = ls.inline_completion(doc.identifier(), pos, None) {
             let request = async move {
@@ -138,6 +139,7 @@ fn request_inline_completions(
                                 doc.set_inline_completion(
                                     view_id,
                                     helix_view::document::InlineCompletionAnnotation {
+                                        server_id,
                                         item,
                                         annotations,
                                     },

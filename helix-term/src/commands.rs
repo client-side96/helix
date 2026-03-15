@@ -7036,7 +7036,8 @@ fn accept_inline_completion(cx: &mut Context) {
     };
 
     let text = doc.text();
-    let item = &inline_completion.item;
+    let item = inline_completion.item.clone();
+    let server_id = inline_completion.server_id;
     let cursor = doc.selection(view_id).primary().cursor(text.slice(..));
 
     let transaction = if let Some(ref range) = item.range {
@@ -7059,5 +7060,10 @@ fn accept_inline_completion(cx: &mut Context) {
         )
     };
 
+    let command = item.command.clone();
     doc.apply(&transaction, view_id);
+
+    if let Some(command) = command {
+        cx.editor.execute_lsp_command(command, server_id);
+    }
 }
