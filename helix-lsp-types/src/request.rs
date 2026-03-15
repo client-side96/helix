@@ -667,10 +667,8 @@ impl Request for PrepareRenameRequest {
 }
 
 #[derive(Debug)]
-#[cfg(feature = "proposed")]
 pub enum InlineCompletionRequest {}
 
-#[cfg(feature = "proposed")]
 impl Request for InlineCompletionRequest {
     type Params = InlineCompletionParams;
     type Result = Option<InlineCompletionResponse>;

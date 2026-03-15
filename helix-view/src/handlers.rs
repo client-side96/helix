@@ -1,5 +1,6 @@
 use completion::{CompletionEvent, CompletionHandler};
 use helix_event::send_blocking;
+use inline_completion::InlineCompletionEvent;
 use tokio::sync::mpsc::Sender;
 
 use crate::handlers::lsp::SignatureHelpInvoked;
@@ -8,6 +9,7 @@ use crate::{DocumentId, Editor, ViewId};
 pub mod completion;
 pub mod dap;
 pub mod diagnostics;
+pub mod inline_completion;
 pub mod lsp;
 pub mod word_index;
 
@@ -20,6 +22,7 @@ pub enum AutoSaveEvent {
 pub struct Handlers {
     // only public because most of the actual implementation is in helix-term right now :/
     pub completions: CompletionHandler,
+    pub inline_completions: Sender<InlineCompletionEvent>,
     pub signature_hints: Sender<lsp::SignatureHelpEvent>,
     pub auto_save: Sender<AutoSaveEvent>,
     pub document_colors: Sender<lsp::DocumentColorsEvent>,
