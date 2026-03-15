@@ -15,8 +15,9 @@ use tokio::time::Instant;
 
 use crate::{
     compositor::Compositor,
-    events::{OnModeSwitch, PostInsertChar},
+    events::{OnModeSwitch, PostCommand, PostInsertChar},
     job::{dispatch, dispatch_blocking},
+    keymap::MappableCommand,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -157,6 +158,39 @@ fn request_inline_completions(
 }
 
 pub(super) fn register_hooks(_handlers: &Handlers) {
+    register_hook!(move |event: &mut PostCommand<'_, '_>| {
+        let (view, doc) = current_ref!(event.cx.editor);
+        let view_id = view.id;
+        let doc_id = doc.id();
+        let text = doc.text();
+        let cursor = doc.selection(view.id).primary().cursor(text.slice(..));
+        let doc = doc_mut!(event.cx.editor, &doc_id);
+
+        if event.cx.editor.mode == Mode::Insert {
+            match event.command {
+                MappableCommand::Static {
+                    name: "smart_tab" | "insert_newline" | "insert_tab" | "accept_inline_completion",
+                    ..
+                } => {
+                    doc.clear_inline_completion(view_id);
+                    send_blocking(
+                        &event.cx.editor.handlers.inline_completions,
+                        InlineCompletionEvent::AutoTrigger {
+                            cursor,
+                            doc: doc.id(),
+                            view: view.id,
+                        },
+                    );
+                }
+
+                _ => {
+                    doc.clear_inline_completion(view_id);
+                }
+            }
+        }
+        Ok(())
+    });
+
     register_hook!(move |event: &mut PostInsertChar<'_, '_>| {
         let (view, doc) = current_ref!(event.cx.editor);
         let view_id = view.id;
