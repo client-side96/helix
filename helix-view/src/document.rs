@@ -13,6 +13,7 @@ use helix_core::snippets::{ActiveSnippet, SnippetRenderCtx};
 use helix_core::syntax::config::LanguageServerFeature;
 use helix_core::text_annotations::{InlineAnnotation, Overlay};
 use helix_event::TaskController;
+use helix_lsp::lsp::InlineCompletionItem;
 use helix_lsp::util::lsp_pos_to_pos;
 use helix_stdx::faccess::{copy_metadata, readonly};
 use helix_vcs::{DiffHandle, DiffProviderRegistry};
@@ -138,6 +139,11 @@ pub enum DocumentOpenError {
     IoError(#[from] io::Error),
 }
 
+pub struct InlineCompletionAnnotation {
+    pub item: InlineCompletionItem,
+    pub annotations: Vec<InlineAnnotation>,
+}
+
 pub struct Document {
     pub(crate) id: DocumentId,
     text: Rope,
@@ -150,6 +156,7 @@ pub struct Document {
     /// To know if they're up-to-date, check the `id` field in `DocumentInlayHints`.
     pub(crate) inlay_hints: HashMap<ViewId, DocumentInlayHints>,
     /// Jump label overlays for each view.
+    pub(crate) inline_completion: HashMap<ViewId, InlineCompletionAnnotation>,
     pub(crate) jump_labels: HashMap<ViewId, Vec<Overlay>>,
     /// LSP document highlights for each view, stored as char ranges.
     pub(crate) document_highlights: HashMap<ViewId, DocumentHighlights>,
@@ -731,6 +738,7 @@ impl Document {
             text,
             selections: HashMap::default(),
             inlay_hints: HashMap::default(),
+            inline_completion: HashMap::default(),
             inlay_hints_oudated: false,
             view_data: Default::default(),
             indent_style: DEFAULT_INDENT,
@@ -1425,6 +1433,7 @@ impl Document {
     pub fn remove_view(&mut self, view_id: ViewId) {
         self.selections.remove(&view_id);
         self.inlay_hints.remove(&view_id);
+        self.inline_completion.remove(&view_id);
         self.jump_labels.remove(&view_id);
         self.document_highlights.remove(&view_id);
         self.document_highlight_controllers.remove(&view_id);
@@ -1620,6 +1629,8 @@ impl Document {
                 view: view_id,
             });
         }
+
+        self.clear_inline_completion(view_id);
 
         true
     }
@@ -2361,6 +2372,22 @@ impl Document {
     /// Set the inlay hints for this document and `view_id`.
     pub fn set_inlay_hints(&mut self, view_id: ViewId, inlay_hints: DocumentInlayHints) {
         self.inlay_hints.insert(view_id, inlay_hints);
+    }
+
+    pub fn set_inline_completion(
+        &mut self,
+        view_id: ViewId,
+        annotation: InlineCompletionAnnotation,
+    ) {
+        self.inline_completion.insert(view_id, annotation);
+    }
+
+    pub fn clear_inline_completion(&mut self, view_id: ViewId) {
+        self.inline_completion.remove(&view_id);
+    }
+
+    pub fn inline_completion(&self, view_id: &ViewId) -> Option<&InlineCompletionAnnotation> {
+        self.inline_completion.get(&view_id)
     }
 
     pub fn set_jump_labels(&mut self, view_id: ViewId, labels: Vec<Overlay>) {

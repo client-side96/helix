@@ -1,10 +1,14 @@
 use std::{sync::Arc, time::Duration};
 
 use arc_swap::ArcSwap;
-use helix_core::syntax::config::LanguageServerFeature;
+use helix_core::{syntax::config::LanguageServerFeature, text_annotations::InlineAnnotation};
 use helix_event::{cancelable_future, register_hook, send_blocking, TaskController, TaskHandle};
-use helix_lsp::util::pos_to_lsp_pos;
+use helix_lsp::{
+    lsp::InlineCompletionResponse,
+    util::{lsp_pos_to_pos, pos_to_lsp_pos},
+};
 use helix_view::{
+    document::Mode,
     handlers::{inline_completion::InlineCompletionEvent, Handlers},
     DocumentId, Editor, ViewId,
 };
@@ -13,7 +17,7 @@ use tokio::time::Instant;
 use crate::{
     compositor::Compositor,
     config::Config,
-    events::PostInsertChar,
+    events::{OnModeSwitch, PostInsertChar},
     job::{dispatch, dispatch_blocking},
 };
 
@@ -105,20 +109,55 @@ fn request_inline_completions(
     _compositor: &mut Compositor,
 ) {
     let (view, doc) = current_ref!(editor);
+    let doc_id = doc.id();
+    let view_id = view.id;
     let text = doc.text();
+    let cursor = doc.selection(view.id).primary().cursor(text.slice(..));
     let language_servers: Vec<_> = doc
         .language_servers_with_feature(LanguageServerFeature::InlineCompletion)
         .collect();
     for ls in language_servers.iter() {
         let offset_encoding = ls.offset_encoding();
-        let cursor = doc.selection(view.id).primary().cursor(text.slice(..));
         let pos = pos_to_lsp_pos(text, cursor, offset_encoding);
         if let Some(response) = ls.inline_completion(doc.identifier(), pos, None) {
             let request = async move {
                 match response.await {
                     Ok(res) => {
-                        dispatch(move |_editor, _compositor| {
-                            log::info!("Got inline completion: {:?}", res);
+                        dispatch(move |editor, _compositor| {
+                            let items = match res {
+                                Some(InlineCompletionResponse::Array(items)) => items,
+                                Some(InlineCompletionResponse::List(list)) => list.items,
+                                None => vec![],
+                            };
+
+                            if let Some(item) = items.into_iter().next() {
+                                let doc = doc_mut!(editor, &doc_id);
+                                let text = doc.text();
+
+                                let ghost_text = if let Some(ref range) = item.range {
+                                    if let Some(range_start) =
+                                        lsp_pos_to_pos(text, range.start, offset_encoding)
+                                    {
+                                        let already_typed = cursor.saturating_sub(range_start);
+                                        item.insert_text
+                                            [already_typed.min(item.insert_text.len())..]
+                                            .to_string()
+                                    } else {
+                                        item.insert_text.clone()
+                                    }
+                                } else {
+                                    item.insert_text.clone()
+                                };
+
+                                let annotations = vec![InlineAnnotation::new(cursor, ghost_text)];
+                                doc.set_inline_completion(
+                                    view_id,
+                                    helix_view::document::InlineCompletionAnnotation {
+                                        item,
+                                        annotations,
+                                    },
+                                );
+                            }
                         })
                         .await;
                     }
@@ -130,22 +169,39 @@ fn request_inline_completions(
     }
 }
 
-pub(super) fn register_hooks(handlers: &Handlers) {
-    let tx = handlers.inline_completions.clone();
-
+pub(super) fn register_hooks(_handlers: &Handlers) {
     register_hook!(move |event: &mut PostInsertChar<'_, '_>| {
         let (view, doc) = current_ref!(event.cx.editor);
+        let view_id = view.id;
+        let doc_id = doc.id();
         let text = doc.text();
         let cursor = doc.selection(view.id).primary().cursor(text.slice(..));
+        let doc = doc_mut!(event.cx.editor, &doc_id);
+        doc.clear_inline_completion(view_id);
 
         send_blocking(
-            &tx,
+            &event.cx.editor.handlers.inline_completions,
             InlineCompletionEvent::AutoTrigger {
                 cursor,
                 doc: doc.id(),
                 view: view.id,
             },
         );
+        Ok(())
+    });
+
+    register_hook!(move |event: &mut OnModeSwitch<'_, '_>| {
+        if event.old_mode == Mode::Insert {
+            let (view, doc) = current_ref!(event.cx.editor);
+            let view_id = view.id;
+            let doc_id = doc.id();
+            let doc = doc_mut!(event.cx.editor, &doc_id);
+            doc.clear_inline_completion(view_id);
+            send_blocking(
+                &event.cx.editor.handlers.inline_completions,
+                InlineCompletionEvent::Cancel,
+            );
+        }
         Ok(())
     });
 }
