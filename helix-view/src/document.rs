@@ -140,6 +140,7 @@ pub enum DocumentOpenError {
 }
 
 pub struct InlineCompletionAnnotation {
+    pub server_id: LanguageServerId,
     pub item: InlineCompletionItem,
     pub annotations: Vec<InlineAnnotation>,
 }
