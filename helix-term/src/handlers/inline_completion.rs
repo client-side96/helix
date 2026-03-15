@@ -176,15 +176,31 @@ pub(super) fn register_hooks(_handlers: &Handlers) {
     });
 
     register_hook!(move |event: &mut OnModeSwitch<'_, '_>| {
+        let (view, doc) = current_ref!(event.cx.editor);
+        let view_id = view.id;
+        let doc_id = doc.id();
+        let text = doc.text();
+        let cursor = doc.selection(view.id).primary().cursor(text.slice(..));
+        let doc = doc_mut!(event.cx.editor, &doc_id);
+
         if event.old_mode == Mode::Insert {
-            let (view, doc) = current_ref!(event.cx.editor);
-            let view_id = view.id;
-            let doc_id = doc.id();
-            let doc = doc_mut!(event.cx.editor, &doc_id);
             doc.clear_inline_completion(view_id);
             send_blocking(
                 &event.cx.editor.handlers.inline_completions,
                 InlineCompletionEvent::Cancel,
+            );
+        }
+
+        if event.new_mode == Mode::Insert {
+            doc.clear_inline_completion(view_id);
+
+            send_blocking(
+                &event.cx.editor.handlers.inline_completions,
+                InlineCompletionEvent::AutoTrigger {
+                    cursor,
+                    doc: doc.id(),
+                    view: view.id,
+                },
             );
         }
         Ok(())
