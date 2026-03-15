@@ -476,6 +476,12 @@ impl View {
                 .add_inline_annotations(other_inlay_hints, other_style)
                 .add_inline_annotations(padding_after_inlay_hints, None);
         };
+
+        if let Some(inline_completion) = doc.inline_completion(&self.id) {
+            let style = theme.and_then(|t| t.find_highlight("ui.virtual.inline-completion"));
+            text_annotations.add_inline_annotations(&inline_completion.annotations, style);
+        }
+
         let config = doc.config.load();
 
         if config.lsp.display_color_swatches {

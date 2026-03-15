@@ -6,6 +6,7 @@ pub(crate) mod typed;
 pub use dap::*;
 use futures_util::FutureExt;
 use helix_event::status;
+use helix_lsp::{util::lsp_pos_to_pos, OffsetEncoding};
 use helix_stdx::{
     path::{self, find_paths},
     rope::{self, RopeSliceExt},
@@ -616,6 +617,7 @@ impl MappableCommand {
         goto_prev_tabstop, "Goto next snippet placeholder",
         rotate_selections_first, "Make the first selection your primary one",
         rotate_selections_last, "Make the last selection your primary one",
+        accept_inline_completion, "Accepts inline completion",
     );
 }
 
@@ -7022,5 +7024,46 @@ fn lsp_or_syntax_workspace_symbol_picker(cx: &mut Context) {
         lsp::workspace_symbol_picker(cx);
     } else {
         syntax_workspace_symbol_picker(cx);
+    }
+}
+
+fn accept_inline_completion(cx: &mut Context) {
+    let (view, doc) = current!(cx.editor);
+    let view_id = view.id;
+
+    let Some(inline_completion) = doc.inline_completion(&view_id) else {
+        return;
+    };
+
+    let text = doc.text();
+    let item = inline_completion.item.clone();
+    let server_id = inline_completion.server_id;
+    let cursor = doc.selection(view_id).primary().cursor(text.slice(..));
+
+    let transaction = if let Some(ref range) = item.range {
+        let offset_encoding = doc
+            .language_servers_with_feature(LanguageServerFeature::InlineCompletion)
+            .next()
+            .map(|ls| ls.offset_encoding())
+            .unwrap_or(OffsetEncoding::Utf16);
+
+        let start = lsp_pos_to_pos(text, range.start, offset_encoding).unwrap_or(cursor);
+        let end = lsp_pos_to_pos(text, range.end, offset_encoding).unwrap_or(cursor);
+        Transaction::change(
+            text,
+            [(start, end, Some(item.insert_text.as_str().into()))].into_iter(),
+        )
+    } else {
+        Transaction::change(
+            text,
+            [(cursor, cursor, Some(item.insert_text.as_str().into()))].into_iter(),
+        )
+    };
+
+    let command = item.command.clone();
+    doc.apply(&transaction, view_id);
+
+    if let Some(command) = command {
+        cx.editor.execute_lsp_command(command, server_id);
     }
 }
