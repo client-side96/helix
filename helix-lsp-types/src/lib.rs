@@ -123,6 +123,9 @@ pub use color::*;
 mod completion;
 pub use completion::*;
 
+mod inline_completion;
+pub use inline_completion::*;
+
 mod document_diagnostic;
 pub use document_diagnostic::*;
 
@@ -1942,6 +1945,10 @@ pub struct ServerCapabilities {
     /// The server provides completion support.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub completion_provider: Option<CompletionOptions>,
+
+    /// The server provides inline completion support.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inline_completion_provider: Option<InlineCompletionOptions>,
 
     /// The server provides signature help support.
     #[serde(skip_serializing_if = "Option::is_none")]
