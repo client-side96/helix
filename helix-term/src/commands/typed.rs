@@ -1620,7 +1620,7 @@ fn lsp_copilot_sign_in(
                         }
                         helix_lsp::lsp::SignInResult::PromptUserDeviceFlow {
                             user_code,
-                            verification_uri,
+                            verification_uri: _,
                             command,
                         } => {
                             let code = user_code.clone();
@@ -1643,7 +1643,7 @@ fn lsp_copilot_sign_in(
         }
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn lsp_copilot_sign_out(
@@ -1661,7 +1661,7 @@ fn lsp_copilot_sign_out(
         }
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn lsp_workspace_command(

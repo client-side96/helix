@@ -2388,7 +2388,7 @@ impl Document {
     }
 
     pub fn inline_completion(&self, view_id: &ViewId) -> Option<&InlineCompletionAnnotation> {
-        self.inline_completion.get(&view_id)
+        self.inline_completion.get(view_id)
     }
 
     pub fn set_jump_labels(&mut self, view_id: ViewId, labels: Vec<Overlay>) {
