@@ -10,6 +10,7 @@ use helix_core::command_line::{Args, Flag, Signature, Token, TokenKind};
 use helix_core::fuzzy::fuzzy_match;
 use helix_core::indent::MAX_INDENT;
 use helix_core::line_ending;
+use helix_lsp::block_on;
 use helix_stdx::path::home_dir;
 use helix_view::document::{read_to_string, DEFAULT_LANGUAGE_NAME};
 use helix_view::editor::{CloseError, ConfigEvent};
@@ -1594,6 +1595,73 @@ fn update(cx: &mut compositor::Context, args: Args, event: PromptEvent) -> anyho
     } else {
         Ok(())
     }
+}
+
+// FIXME: The lsp name should not be hardcoded, but identified by feature/capability.
+const COPILOT_LSP: &str = "copilot-language-server";
+
+fn lsp_copilot_sign_in(
+    cx: &mut compositor::Context,
+    _args: Args,
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+
+    if let Some(copilot_lsp) = doc_mut!(cx.editor).get_language_server_by_name(COPILOT_LSP) {
+        match block_on(copilot_lsp.sign_in().unwrap()) {
+            Ok(result) => {
+                if let Some(res) = result {
+                    match res {
+                        helix_lsp::lsp::SignInResult::AlreadySignedIn => {
+                            cx.editor.set_status("Already signed in");
+                            return Ok(());
+                        }
+                        helix_lsp::lsp::SignInResult::PromptUserDeviceFlow {
+                            user_code,
+                            verification_uri: _,
+                            command,
+                        } => {
+                            let code = user_code.clone();
+                            cx.editor
+                                .set_status(format!("Please enter this code on Github: `{code}`"));
+                            cx.editor.execute_lsp_command(
+                                helix_lsp::lsp::Command {
+                                    title: command.title.clone(),
+                                    command: command.command.clone(),
+                                    arguments: None,
+                                },
+                                copilot_lsp.id(),
+                            );
+                            return Ok(());
+                        }
+                    };
+                }
+            }
+            Err(err) => cx.editor.set_error(err.to_string()),
+        }
+    }
+
+    Ok(())
+}
+
+fn lsp_copilot_sign_out(
+    cx: &mut compositor::Context,
+    _args: Args,
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+    if let Some(copilot_lsp) = doc_mut!(cx.editor).get_language_server_by_name(COPILOT_LSP) {
+        match block_on(copilot_lsp.sign_out().unwrap()) {
+            Ok(_) => return Ok(()),
+            Err(err) => cx.editor.set_error(err.to_string()),
+        }
+    }
+
+    Ok(())
 }
 
 fn lsp_workspace_command(
@@ -3518,6 +3586,28 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         signature: Signature {
             positionals: (0, Some(0)),
             flags: &[WRITE_NO_FORMAT_FLAG],
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "lsp-copilot-sign-in",
+        aliases: &[],
+        doc: "Sign In Github Copilot",
+        fun: lsp_copilot_sign_in,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, None),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "lsp-copilot-sign-out",
+        aliases: &[],
+        doc: "Sign Out Github Copilot",
+        fun: lsp_copilot_sign_out,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, None),
             ..Signature::DEFAULT
         },
     },

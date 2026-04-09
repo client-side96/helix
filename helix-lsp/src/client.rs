@@ -17,6 +17,7 @@ use helix_core::{
     ChangeSet, Rope,
 };
 use helix_loader::VERSION_AND_GIT_HASH;
+use helix_lsp_types::InlineCompletionTriggerKind;
 use helix_stdx::path;
 use parking_lot::Mutex;
 use serde::Deserialize;
@@ -359,6 +360,9 @@ impl Client {
                 Some(OneOf::Left(true) | OneOf::Right(_))
             ),
             LanguageServerFeature::Completion => capabilities.completion_provider.is_some(),
+            LanguageServerFeature::InlineCompletion => {
+                capabilities.inline_completion_provider.is_some()
+            }
             LanguageServerFeature::CodeAction => matches!(
                 capabilities.code_action_provider,
                 Some(
@@ -1210,6 +1214,28 @@ impl Client {
         Some(self.call::<lsp::request::DocumentLinkResolve>(params))
     }
 
+    pub fn inline_completion(
+        &self,
+        text_document: lsp::TextDocumentIdentifier,
+        position: lsp::Position,
+        work_done_token: Option<lsp::ProgressToken>,
+    ) -> Option<impl Future<Output = Result<Option<lsp::InlineCompletionResponse>>>> {
+        let params = lsp::InlineCompletionParams {
+            work_done_progress_params: lsp::WorkDoneProgressParams {
+                work_done_token: work_done_token.clone(),
+            },
+            context: helix_lsp_types::InlineCompletionContext {
+                trigger_kind: InlineCompletionTriggerKind::Automatic,
+                selected_completion_info: None,
+            },
+            text_document_position: lsp::TextDocumentPositionParams {
+                text_document,
+                position,
+            },
+        };
+        Some(self.call::<lsp::request::InlineCompletionRequest>(params))
+    }
+
     pub fn text_document_hover(
         &self,
         text_document: lsp::TextDocumentIdentifier,
@@ -1712,5 +1738,15 @@ impl Client {
         self.notify::<lsp::notification::DidChangeWatchedFiles>(lsp::DidChangeWatchedFilesParams {
             changes,
         })
+    }
+
+    pub fn sign_in(&self) -> Option<impl Future<Output = Result<Option<lsp::SignInResult>>>> {
+        let params = lsp::SignInParams {};
+        Some(self.call::<lsp::request::SignIn>(params))
+    }
+
+    pub fn sign_out(&self) -> Option<impl Future<Output = Result<Option<lsp::SignOutResult>>>> {
+        let params = lsp::SignOutParams {};
+        Some(self.call::<lsp::request::SignOut>(params))
     }
 }
