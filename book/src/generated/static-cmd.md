@@ -171,7 +171,7 @@
 | `signature_help` | Show signature help |  |
 | `smart_tab` | Insert tab if all cursors have all whitespace to their left; otherwise, run a separate command. | insert: `` <tab> `` |
 | `insert_tab` | Insert tab char | insert: `` <S-tab> `` |
-| `insert_newline` | Insert newline char | insert: `` <C-j> ``, `` <ret> `` |
+| `insert_newline` | Insert newline char | insert: `` <ret> `` |
 | `insert_char_interactive` | Insert an interactively-chosen char |  |
 | `append_char_interactive` | Append an interactively-chosen char |  |
 | `delete_char_backward` | Delete previous char | insert: `` <C-h> ``, `` <backspace> ``, `` <S-backspace> `` |
@@ -313,3 +313,4 @@
 | `goto_prev_tabstop` | Goto next snippet placeholder |  |
 | `rotate_selections_first` | Make the first selection your primary one |  |
 | `rotate_selections_last` | Make the last selection your primary one |  |
+| `accept_inline_completion` | Accepts inline completion | insert: `` <C-j> `` |

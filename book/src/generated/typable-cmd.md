@@ -56,6 +56,8 @@
 | `:reload`, `:rl` | Discard changes and reload from the source file. |
 | `:reload-all`, `:rla` | Discard changes and reload all documents from the source files. |
 | `:update`, `:u` | Write changes only if the file has been modified. |
+| `:lsp-copilot-sign-in` | Sign In Github Copilot |
+| `:lsp-copilot-sign-out` | Sign Out Github Copilot |
 | `:lsp-workspace-command` | Open workspace command picker |
 | `:lsp-restart` | Restarts the given language servers, or all language servers that are used by the current file if no arguments are supplied |
 | `:lsp-stop` | Stops the given language servers, or all language servers that are used by the current file if no arguments are supplied |
