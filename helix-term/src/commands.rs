@@ -408,6 +408,7 @@ impl MappableCommand {
         file_explorer_in_current_directory, "Open file explorer at current working directory",
         code_action, "Perform code action",
         buffer_picker, "Open buffer picker",
+        gh_pr_comment_picker, "Open Github PR picker",
         jumplist_picker, "Open jumplist picker",
         symbol_picker, "Open symbol picker",
         syntax_symbol_picker, "Open symbol picker from syntax information",
@@ -3306,6 +3307,37 @@ impl PathStyleConfig {
 
         Cell::from(Spans::from(spans))
     }
+}
+
+pub fn gh_pr_comment_picker(cx: &mut Context) {
+    struct GithubMeta {
+        file: String,
+        comment: String,
+        line: usize,
+    }
+    let new_meta = |file: String, comment: String, line: usize| GithubMeta {
+        file: file,
+        comment: comment,
+        line: line,
+    };
+
+    let items = vec![new_meta("File".to_string(), "Comment".to_string(), 12)];
+
+    let columns = [
+        PickerColumn::new("file", |meta: &GithubMeta, __| meta.file.to_string().into()),
+        PickerColumn::new("comment", |meta: &GithubMeta, __| {
+            meta.comment.to_string().into()
+        }),
+        PickerColumn::new("line", |meta: &GithubMeta, __| meta.line.to_string().into()),
+    ];
+    let picker = Picker::new(
+        columns,
+        0,
+        items,
+        PathStyleConfig::new(&cx.editor.theme),
+        |cx, meta, action| {},
+    );
+    cx.push_layer(Box::new(overlaid(picker)));
 }
 
 fn buffer_picker(cx: &mut Context) {
