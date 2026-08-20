@@ -281,6 +281,7 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
             },
             "y" => yank_to_clipboard,
             "Y" => yank_main_selection_to_clipboard,
+            "z" => gh_pr_comment_picker,
             "p" => paste_clipboard_after,
             "P" => paste_clipboard_before,
             "R" => replace_selections_with_clipboard,
